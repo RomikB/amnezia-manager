@@ -97,6 +97,10 @@ prepareHostWorker() {
     AM_ScriptName=prepare_host.sh; runServerScript
 }
 
+removeContainer() {
+    AM_ScriptName=remove_container.sh; runServerScript
+}
+
 buildContainerWorker() {
     AM_ScriptPath=$AMNEZIA_MANAGER_CONTAINER_SCRIPTS_DIR/Dockerfile
     if [ ! -e $AM_ScriptPath ]; then AM_FilePath=$AM_ScriptPath; downloadServerContainerFile; fi
@@ -112,6 +116,10 @@ configureContainerWorker() {
     #updateContainerConfigAfterInstallation
 }
 
+setupServerFirewall() {
+    AM_ScriptName=setup_host_firewall.sh; runServerScript
+}
+
 startupContainerWorker() {
     AM_ScriptName=start.sh
     AM_ScriptPath=$AMNEZIA_MANAGER_CONTAINER_SCRIPTS_DIR/$AM_ScriptName
@@ -125,10 +133,11 @@ startupContainerWorker() {
 setupContainer() {
     installDockerWorker
     prepareHostWorker
+    removeContainer
     buildContainerWorker
     runContainerWorker
     configureContainerWorker
-    #setupServerFirewall
+    setupServerFirewall
     startupContainerWorker
 }
 
@@ -207,7 +216,7 @@ TRANSPORT_PACKET_MAGIC_HEADER=$AM_ConfigTransportPacketMagicHeader" > $AMNEZIA_M
 removeConfiguration() {
     CONTAINER_NAME=$AMNEZIA_MANAGER_CONTAINER_NAME
 
-    AM_ScriptName=remove_container.sh; runServerScript
+    removeContainer
 
     rm -f $AMNEZIA_MANAGER_CONTAINER_CONFIG
 }
