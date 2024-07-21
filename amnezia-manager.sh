@@ -1,7 +1,24 @@
 #!/bin/sh
 
+RED='\033[0;31m'
+ORANGE='\033[0;33m'
+GREEN='\033[0;32m'
+NC='\033[0m'
+
+# Main consts
+AMNEZIA_MANAGER_CONFIGURATIONS_DIR=/etc/opt/amnezia-manager
+AMNEZIA_MANAGER_DIR=/var/opt/amnezia-manager
+AMNEZIA_MANAGER_TEMP_DIR=/var/opt/amnezia-manager/temp
+AMNEZIA_MANAGER_SCRIPTS_DIR=/var/opt/amnezia-manager/server_scripts
+AMNEZIA_MANAGER_SCRIPTS_UPSTREAM=https://raw.githubusercontent.com/amnezia-vpn/amnezia-client/dev/client/server_scripts
+
+# Dependent consts
+AMNEZIA_MANAGER_CONFIGURATIONS_PARAMS=$AMNEZIA_MANAGER_CONFIGURATIONS_DIR/params
+
 # AWG consts
-AMNEZIA_MANAGER_AWG_MessageInitiationSize=148; AMNEZIA_MANAGER_AWG_MessageResponseSize=92
+AMNEZIA_MANAGER_AWG_MessageInitiationSize=148;
+AMNEZIA_MANAGER_AWG_MessageResponseSize=92
+AMNEZIA_MANAGER_AWG_ServerConfigPath=/opt/amnezia/awg/wg0.conf
 
 #countConfigurations() {
 #    AWG_MANAGER_CONFIGURATION_COUNT=0
@@ -12,103 +29,125 @@ AMNEZIA_MANAGER_AWG_MessageInitiationSize=148; AMNEZIA_MANAGER_AWG_MessageRespon
 #}
 
 
+# 1 - Dir
 ensureDirExist() {
-    [ -d $AM_Dir ] || mkdir -m 600 -p $AM_Dir
+    [ -d $1 ] || mkdir -m 600 -p $1
 }
 
+# 1 - FileName or FilePath (basename used)
+# return TempPath
+getTempPath() {
+    AM_LocalTempPath=$AMNEZIA_MANAGER_TEMP_DIR/$(basename $1).$(shuf -i0-999 -n1)
+    while [ -e $AM_LocalTempPath ]; do AM_LocalTempPath=$AMNEZIA_MANAGER_TEMP_DIR/$(basename $1).$(shuf -i0-999 -n1); done
+    echo $AM_LocalTempPath
+}
+
+# 1 - SourceUrl
+# 2 - TargetDir
 downloadFile() {
-    wget -nv -P $AM_TargetDir $AM_SourcePath
+    wget -nv -P $2 $1
 }
 
+# 1 - TargetPath
 downloadServerFile() {
-    AM_SourcePath=$AMNEZIA_MANAGER_SCRIPTS_UPSTREAM/$(basename $AM_FilePath)
-    AM_TargetDir=$(dirname $AM_FilePath)
-    downloadFile
+    downloadFile $AMNEZIA_MANAGER_SCRIPTS_UPSTREAM/$(basename $1) $(dirname $1)
 }
 
+# 1 - ScriptName
 runServerScript() {
-    AM_ScriptPath=$AMNEZIA_MANAGER_SCRIPTS_DIR/$AM_ScriptName;
-    if [ ! -e $AM_ScriptPath ]; then AM_FilePath=$AM_ScriptPath; downloadServerFile; fi
+    AM_ScriptPath=$AMNEZIA_MANAGER_SCRIPTS_DIR/$1;
+    if [ ! -e $AM_ScriptPath ]; then downloadServerFile $AM_ScriptPath; fi
     . $AM_ScriptPath
 }
 
+# 1 - TargetPath
 downloadServerContainerFile() {
-    AM_SourcePath=$AMNEZIA_MANAGER_CONTAINER_SCRIPTS_UPSTREAM/$(basename $AM_FilePath)
-    AM_TargetDir=$(dirname $AM_FilePath)
-    downloadFile
+    if [ ! -e $1 ]; then downloadFile $AMNEZIA_MANAGER_CONTAINER_SCRIPTS_UPSTREAM/$(basename $1) $(dirname $1); fi
 }
 
+# 1 - ScriptName
 runServerContainerScript() {
-    AM_ScriptPath=$AMNEZIA_MANAGER_CONTAINER_SCRIPTS_DIR/$AM_ScriptName;
-    if [ ! -e $AM_ScriptPath ]; then AM_FilePath=$AM_ScriptPath; downloadServerContainerFile; fi
+    AM_ScriptPath=$AMNEZIA_MANAGER_CONTAINER_SCRIPTS_DIR/$1;
+    downloadServerContainerFile $AM_ScriptPath
     . $AM_ScriptPath
 }
 
+# 1 - Path
 replaceVars() {
-    sed -i s/\$WIREGUARD_SUBNET_IP/$WIREGUARD_SUBNET_IP/ $AM_RV_Path
-    sed -i s/\$WIREGUARD_SUBNET_CIDR/$WIREGUARD_SUBNET_CIDR/ $AM_RV_Path
-    sed -i s/\$AWG_SERVER_PORT/$AWG_SERVER_PORT/ $AM_RV_Path
-    sed -i s/\$JUNK_PACKET_COUNT/$JUNK_PACKET_COUNT/ $AM_RV_Path
-    sed -i s/\$JUNK_PACKET_MIN_SIZE/$JUNK_PACKET_MIN_SIZE/ $AM_RV_Path
-    sed -i s/\$JUNK_PACKET_MAX_SIZE/$JUNK_PACKET_MAX_SIZE/ $AM_RV_Path
-    sed -i s/\$INIT_PACKET_JUNK_SIZE/$INIT_PACKET_JUNK_SIZE/ $AM_RV_Path
-    sed -i s/\$RESPONSE_PACKET_JUNK_SIZE/$RESPONSE_PACKET_JUNK_SIZE/ $AM_RV_Path
-    sed -i s/\$INIT_PACKET_MAGIC_HEADER/$INIT_PACKET_MAGIC_HEADER/ $AM_RV_Path
-    sed -i s/\$RESPONSE_PACKET_MAGIC_HEADER/$RESPONSE_PACKET_MAGIC_HEADER/ $AM_RV_Path
-    sed -i s/\$UNDERLOAD_PACKET_MAGIC_HEADER/$UNDERLOAD_PACKET_MAGIC_HEADER/ $AM_RV_Path
-    sed -i s/\$TRANSPORT_PACKET_MAGIC_HEADER/$TRANSPORT_PACKET_MAGIC_HEADER/ $AM_RV_Path
+    sed -i s/\$WIREGUARD_SUBNET_IP/$WIREGUARD_SUBNET_IP/ $1
+    sed -i s/\$WIREGUARD_SUBNET_CIDR/$WIREGUARD_SUBNET_CIDR/ $1
+    sed -i s/\$AWG_SERVER_PORT/$AWG_SERVER_PORT/ $1
+    sed -i s/\$JUNK_PACKET_COUNT/$JUNK_PACKET_COUNT/ $1
+    sed -i s/\$JUNK_PACKET_MIN_SIZE/$JUNK_PACKET_MIN_SIZE/ $1
+    sed -i s/\$JUNK_PACKET_MAX_SIZE/$JUNK_PACKET_MAX_SIZE/ $1
+    sed -i s/\$INIT_PACKET_JUNK_SIZE/$INIT_PACKET_JUNK_SIZE/ $1
+    sed -i s/\$RESPONSE_PACKET_JUNK_SIZE/$RESPONSE_PACKET_JUNK_SIZE/ $1
+    sed -i s/\$INIT_PACKET_MAGIC_HEADER/$INIT_PACKET_MAGIC_HEADER/ $1
+    sed -i s/\$RESPONSE_PACKET_MAGIC_HEADER/$RESPONSE_PACKET_MAGIC_HEADER/ $1
+    sed -i s/\$UNDERLOAD_PACKET_MAGIC_HEADER/$UNDERLOAD_PACKET_MAGIC_HEADER/ $1
+    sed -i s/\$TRANSPORT_PACKET_MAGIC_HEADER/$TRANSPORT_PACKET_MAGIC_HEADER/ $1
+
+    sed -i s/\$SERVER_IP_ADDRESS/$SERVER_IP_ADDRESS/ $1
 }
 
+downloadDockerContainerFile() {
+    docker cp $AMNEZIA_MANAGER_CONTAINER_NAME:$AM_SourcePath $AM_TargetPath
+}
+
+# 1 - SourcePath
+# 2 - TargetPath
+# 3 - OverwriteMode: "overwrite" | "append"
 uploadDockerContainerFile() {
-    AM_ReplacePath=$AMNEZIA_MANAGER_TEMP_DIR/$(basename $AM_SourcePath)
-    cp -f $AM_SourcePath $AM_ReplacePath
-    AM_RV_Path=$AM_ReplacePath; replaceVars
-
-    docker exec -i $AMNEZIA_MANAGER_CONTAINER_NAME mkdir -p $(dirname $AM_TargetPath)
-    if [ $AM_OverwriteMode = "overwrite" ]; then
-        docker cp $AM_ReplacePath $AMNEZIA_MANAGER_CONTAINER_NAME:$AM_TargetPath
-    else
-        docker cp $AM_ReplacePath $AMNEZIA_MANAGER_CONTAINER_NAME:/tmp/tmp.tmp
-        docker exec -i $AMNEZIA_MANAGER_CONTAINER_NAME sh -c "cat /tmp/tmp.tmp $AM_TargetPath"
+    docker exec -i $AMNEZIA_MANAGER_CONTAINER_NAME mkdir -p $(dirname $2)
+    if [ $3 = "overwrite" ]; then
+        docker cp $1 $AMNEZIA_MANAGER_CONTAINER_NAME:$2
+    elif [ $3 = "append" ]; then
+        docker cp $1 $AMNEZIA_MANAGER_CONTAINER_NAME:/tmp/tmp.tmp
+        docker exec -i $AMNEZIA_MANAGER_CONTAINER_NAME sh -c "cat /tmp/tmp.tmp >> $2"
     fi
-
-    #rm -f $AM_ReplacePath
 }
 
+# 1 - Path
 removeDockerContainerFile() {
-    docker exec -i $AMNEZIA_MANAGER_CONTAINER_NAME rm $AM_TargetPath
+    docker exec -i $AMNEZIA_MANAGER_CONTAINER_NAME rm $1
 }
 
 runDockerContainerScript() {
     AM_ScriptPath=$AMNEZIA_MANAGER_CONTAINER_SCRIPTS_DIR/$AM_ScriptName
-    if [ ! -e $AM_ScriptPath ]; then AM_FilePath=$AM_ScriptPath; downloadServerContainerFile; fi
-    AM_SourcePath=$AM_ScriptPath;
+    downloadServerContainerFile $AM_ScriptPath
+
+    AM_TempPath=$(getTempPath $AM_ScriptPath)
+    cp -f $AM_ScriptPath $AM_TempPath
+    replaceVars $AM_TempPath
+
     AM_TargetPath=/opt/amnezia/$AM_ScriptName;
-    AM_OverwriteMode="overwrite"; uploadDockerContainerFile
+    uploadDockerContainerFile $AM_TempPath $AM_TargetPath "overwrite"
     docker exec -i $AMNEZIA_MANAGER_CONTAINER_NAME bash $AM_TargetPath
-    removeDockerContainerFile
+    removeDockerContainerFile $AM_TargetPath
+
+    rm $AM_TempPath
 }
 
 installDockerWorker() {
-    AM_ScriptName=install_docker.sh; runServerScript
+    runServerScript install_docker.sh
 }
 
 prepareHostWorker() {
-    AM_ScriptName=prepare_host.sh; runServerScript
+    runServerScript prepare_host.sh
 }
 
 removeContainer() {
-    AM_ScriptName=remove_container.sh; runServerScript
+    runServerScript remove_container.sh
 }
 
 buildContainerWorker() {
     AM_ScriptPath=$AMNEZIA_MANAGER_CONTAINER_SCRIPTS_DIR/Dockerfile
-    if [ ! -e $AM_ScriptPath ]; then AM_FilePath=$AM_ScriptPath; downloadServerContainerFile; fi
-    AM_ScriptName=build_container.sh; runServerScript
+    downloadServerContainerFile $AM_ScriptPath
+    runServerScript build_container.sh
 }
 
 runContainerWorker() {
-    AM_ScriptName=run_container.sh; runServerContainerScript
+    runServerContainerScript run_container.sh
 }
 
 configureContainerWorker() {
@@ -117,17 +156,23 @@ configureContainerWorker() {
 }
 
 setupServerFirewall() {
-    AM_ScriptName=setup_host_firewall.sh; runServerScript
+    runServerScript setup_host_firewall.sh
 }
 
 startupContainerWorker() {
     AM_ScriptName=start.sh
     AM_ScriptPath=$AMNEZIA_MANAGER_CONTAINER_SCRIPTS_DIR/$AM_ScriptName
-    if [ ! -e $AM_ScriptPath ]; then AM_FilePath=$AM_ScriptPath; downloadServerContainerFile; fi
-    AM_SourcePath=$AM_ScriptPath;
+    downloadServerContainerFile $AM_ScriptPath
+
+    AM_TempPath=$(getTempPath $AM_ScriptPath)
+    cp -f $AM_ScriptPath $AM_TempPath
+    replaceVars $AM_TempPath
+
     AM_TargetPath=/opt/amnezia/$AM_ScriptName;
-    AM_OverwriteMode="overwrite"; uploadDockerContainerFile
-    docker exec -d $AMNEZIA_MANAGER_CONTAINER_NAME sh -c "chmod a+x /opt/amnezia/$AM_ScriptName && /opt/amnezia/$AM_ScriptName"
+    uploadDockerContainerFile $AM_TempPath $AM_TargetPath "overwrite"
+    docker exec -d $AMNEZIA_MANAGER_CONTAINER_NAME sh -c "chmod a+x $AM_TargetPath && $AM_TargetPath"
+
+    rm $AM_TempPath
 }
 
 setupContainer() {
@@ -141,6 +186,72 @@ setupContainer() {
     startupContainerWorker
 }
 
+replaceAmneziaWGdockerVars() {
+    sed -i s:\$WIREGUARD_CLIENT_PRIVATE_KEY:$WIREGUARD_CLIENT_PRIVATE_KEY: $1
+    sed -i s:\$WIREGUARD_CLIENT_IP:$WIREGUARD_CLIENT_IP: $1
+    sed -i s:\$WIREGUARD_SERVER_PUBLIC_KEY:$WIREGUARD_SERVER_PUBLIC_KEY: $1
+    sed -i s:\$WIREGUARD_PSK:$WIREGUARD_PSK: $1
+
+    sed -i s/\$PRIMARY_DNS/$PRIMARY_DNS/ $1
+    sed -i s/\$SECONDARY_DNS/$SECONDARY_DNS/ $1
+}
+
+createConfigAmneziaWGdocker() {
+    AM_ClientTemplatePath=$AMNEZIA_MANAGER_CONTAINER_SCRIPTS_DIR/template.conf
+    downloadServerContainerFile $AM_ClientTemplatePath
+    
+    AM_ServerTempFile=$(getTempPath $AMNEZIA_MANAGER_AWG_ServerConfigPath)
+    AM_ClientTempPath=$(getTempPath $AM_ClientTemplatePath)
+    
+    cp -f $AM_ClientTemplatePath $AM_ClientTempPath
+    replaceVars $AM_ClientTempPath
+
+    AM_ServerConfigAllowedIPs=$(docker exec $AMNEZIA_MANAGER_CONTAINER_NAME sh -c "grep AllowedIPs $AMNEZIA_MANAGER_AWG_ServerConfigPath")
+    AM_ClientPrivateKey=$(docker exec $AMNEZIA_MANAGER_CONTAINER_NAME sh -c "wg genkey")
+    AM_ClientPublicKey=$(docker exec $AMNEZIA_MANAGER_CONTAINER_NAME sh -c "echo $AM_ClientPrivateKey | wg pubkey")
+    AM_ServerPublicKey=$(docker exec $AMNEZIA_MANAGER_CONTAINER_NAME sh -c "cat /opt/amnezia/$AMNEZIA_MANAGER_CONTAINER_TEMPLATE/wireguard_server_public_key.key")
+    AM_PresharedKey=$(docker exec $AMNEZIA_MANAGER_CONTAINER_NAME sh -c "cat /opt/amnezia/$AMNEZIA_MANAGER_CONTAINER_TEMPLATE/wireguard_psk.key")
+
+    AM_SubnetPrefixWithDot=${WIREGUARD_SUBNET_IP%.*}.
+    AM_NextIp=2
+    AM_ClientAddress=$AM_SubnetPrefixWithDot$AM_NextIp
+    while echo $AM_ServerConfigAllowedIPs | grep -Fq $AM_ClientAddress $AM_TargetPath && [ $AM_NextIp -le 254 ]; do
+        AM_NextIp=$(expr $AM_NextIp + 1)
+        AM_ClientAddress=$AM_SubnetPrefixWithDot$AM_NextIp
+    done
+
+    WIREGUARD_CLIENT_PRIVATE_KEY=$AM_ClientPrivateKey
+    WIREGUARD_CLIENT_IP=$AM_ClientAddress
+    WIREGUARD_SERVER_PUBLIC_KEY=$AM_ServerPublicKey
+    WIREGUARD_PSK=$AM_PresharedKey
+    PRIMARY_DNS=$PRIMARY_SERVER_DNS
+    SECONDARY_DNS=$SECONDARY_SERVER_DNS
+
+    echo "[Peer]
+PublicKey = $AM_ClientPublicKey
+PresharedKey = $AM_PresharedKey
+AllowedIPs = $AM_ClientAddress/32" > $AM_ServerTempFile
+
+    uploadDockerContainerFile $AM_ServerTempFile $AMNEZIA_MANAGER_AWG_ServerConfigPath "append"
+    sudo docker exec -i $AMNEZIA_MANAGER_CONTAINER_NAME bash -c "wg syncconf wg0 <(wg-quick strip $AMNEZIA_MANAGER_AWG_ServerConfigPath)"
+
+    replaceAmneziaWGdockerVars $AM_ClientTempPath
+
+    echo ""
+    echo "${GREEN}Here is your client config file as text:${NC}"
+    echo ""
+    cat $AM_ClientTempPath
+    echo ""
+
+  	# Generate QR code if qrencode is installed
+    if command -v qrencode > /dev/null; then
+		echo "${GREEN}Here is your client config file as a QR Code:${NC}"
+		echo ""
+        qrencode -t ansiutf8 -l L < $AM_ClientTempPath
+		echo ""
+	fi
+}
+
 addAmneziaWGdocker() {
     AMNEZIA_MANAGER_CONTAINER_TYPE=docker
     AMNEZIA_MANAGER_CONTAINER_TEMPLATE=awg
@@ -149,7 +260,7 @@ addAmneziaWGdocker() {
     AMNEZIA_MANAGER_CONTAINER_SCRIPTS_DIR=$AMNEZIA_MANAGER_SCRIPTS_DIR/$AMNEZIA_MANAGER_CONTAINER_TEMPLATE
     AMNEZIA_MANAGER_CONTAINER_SCRIPTS_UPSTREAM=$AMNEZIA_MANAGER_SCRIPTS_UPSTREAM/$AMNEZIA_MANAGER_CONTAINER_TEMPLATE
 
-    AM_Dir=$AMNEZIA_MANAGER_CONTAINER_SCRIPTS_DIR; ensureDirExist
+    ensureDirExist $AMNEZIA_MANAGER_CONTAINER_SCRIPTS_DIR
     
     # GenerateContainerConfig
 
@@ -211,6 +322,12 @@ TRANSPORT_PACKET_MAGIC_HEADER=$AM_ConfigTransportPacketMagicHeader" > $AMNEZIA_M
     DOCKERFILE_FOLDER=$AMNEZIA_MANAGER_CONTAINER_SCRIPTS_DIR
 
     setupContainer
+
+    createConfigAmneziaWGdocker
+}
+
+addClient() {
+    createConfigAmneziaWGdocker 11 22 33
 }
 
 removeConfiguration() {
@@ -222,23 +339,28 @@ removeConfiguration() {
 }
 
 removeConfigurations() {
-    AM_ScriptName=remove_all_containers.sh; runServerScript
+    runServerScript remove_all_containers.sh
 
     rm -f $AMNEZIA_MANAGER_CONFIGURATIONS_DIR/*.conf
 }
 
+# 1 - From
+# 2 - To
+# return $AM_MenuOption
 readMenuOption() {
-    read -rp "Select an option [${AM_MenuFrom}-${AM_MenuTo}]: " AM_MenuOption
+    read -rp "Select an option [$1-$2]: " AM_MenuOption
 }
 
+# 1 - From
+# 2 - To
 getMenuOption() {
     success="false"
     while [ $success != "true" ]; do
-        readMenuOption
+        readMenuOption $1 $2
         case $AM_MenuOption in
-            [1-9]) if [ $AM_MenuOption -ge $AM_MenuFrom -a $AM_MenuOption -le $AM_MenuTo ]; then success="true"; fi ;;
-            1[0-9]) if [ $AM_MenuOption -ge $AM_MenuFrom -a $AM_MenuOption -le $AM_MenuTo ]; then success="true"; fi ;;
-            2[0-9]) if [ $AM_MenuOption -ge $AM_MenuFrom -a $AM_MenuOption -le $AM_MenuTo ]; then success="true"; fi ;;
+            [1-9]) if [ $AM_MenuOption -ge $1 -a $AM_MenuOption -le $2 ]; then success="true"; fi ;;
+            1[0-9]) if [ $AM_MenuOption -ge $1 -a $AM_MenuOption -le $2 ]; then success="true"; fi ;;
+            2[0-9]) if [ $AM_MenuOption -ge $1 -a $AM_MenuOption -le $2 ]; then success="true"; fi ;;
         esac
     done
 }
@@ -255,7 +377,7 @@ listConfigurations() {
 addConfigurationMenu() {
     echo "   1) Add AmneziaWG (native) - require about 2GB of free space for kernel module compilation)"
     echo "   2) Add AmneziaWG (docker)"
-    AM_MenuFrom=1; AM_MenuTo=2; getMenuOption
+    getMenuOption 1 2
     case $AM_MenuOption in
         1) addAmneziaWGnative ;;
         2) addAmneziaWGdocker ;;
@@ -269,15 +391,17 @@ configurationMenu() {
     AMNEZIA_MANAGER_CONTAINER_SCRIPTS_UPSTREAM=$AMNEZIA_MANAGER_SCRIPTS_UPSTREAM/$AMNEZIA_MANAGER_CONTAINER_TEMPLATE
     
     echo "Name: $AMNEZIA_MANAGER_CONTAINER_NAME, Type: $AMNEZIA_MANAGER_CONTAINER_TEMPLATE ($AMNEZIA_MANAGER_CONTAINER_TYPE)"
-    echo "   1) Remove Configuration"
-    AM_MenuFrom=1; AM_MenuTo=1; getMenuOption
+    echo "   1) Add Client"
+    echo "   2) Remove Configuration"
+    getMenuOption 1 2
     case $AM_MenuOption in
-        1) removeConfiguration ;;
+        1) addClient ;;
+        2) removeConfiguration ;;
     esac
 }
 
 mainMenu() {
-    echo "Amnezia server manager (https://github.com/romikb/amnezia-manager)"
+    echo ""
     echo "Existing configurations:"
     AM_ConfigurationsCount=0
     if [ $(find $AMNEZIA_MANAGER_CONFIGURATIONS_DIR -name "*.conf" | wc -l) -eq 0 ]; then
@@ -285,6 +409,7 @@ mainMenu() {
     else
         listConfigurations
     fi
+    echo ""
     echo "Other options:"
     if [ $AM_ConfigurationsCount -ne 0 ]; then
         AM_ConfigurationsCount=$(expr $AM_ConfigurationsCount + 1)
@@ -294,7 +419,8 @@ mainMenu() {
     AM_ConfigurationsCount=$(expr $AM_ConfigurationsCount + 1)
     echo "   $AM_ConfigurationsCount) Add Configuration"
     eval "AM_Configuration$AM_ConfigurationsCount"=AddConfiguration
-    AM_MenuFrom=1; AM_MenuTo=$AM_ConfigurationsCount; getMenuOption
+    echo ""
+    getMenuOption 1 $AM_ConfigurationsCount
     
     eval AM_Configuration="\$AM_Configuration$AM_MenuOption"
     case $AM_Configuration in
@@ -304,17 +430,67 @@ mainMenu() {
     esac
 }
 
-[ ! -z "$AMNEZIA_MANAGER_ROOT" ] && [ -d "$AMNEZIA_MANAGER_ROOT" ] || AMNEZIA_MANAGER_ROOT=/var/opt/amnezia-manager
+isRoot() {
+	if [ $(id -u) -ne 0 ]; then
+		echo "You need to run this script as root"
+		exit 1
+	fi
+}
 
-AMNEZIA_MANAGER_CONFIGURATIONS_DIR=/etc/opt/amnezia-manager
-AMNEZIA_MANAGER_DIR=/var/opt/amnezia-manager
-AMNEZIA_MANAGER_TEMP_DIR=/var/opt/amnezia-manager/temp
-AMNEZIA_MANAGER_SCRIPTS_DIR=/var/opt/amnezia-manager/server_scripts
-AMNEZIA_MANAGER_SCRIPTS_UPSTREAM=https://raw.githubusercontent.com/amnezia-vpn/amnezia-client/dev/client/server_scripts
+#checkVirt() {
+#	if [ "$(systemd-detect-virt)" = "openvz" ]; then
+#		echo "OpenVZ is not supported"
+#		exit 1
+#	fi
+#
+#	if [ "$(systemd-detect-virt)" = "lxc" ]; then
+#		echo "LXC is not supported"
+#		exit 1
+#	fi
+#
+#  	if [ "$(systemd-detect-virt)" = "wsl" ]; then
+#		echo "WSL is not supported"
+#		exit 1
+#	fi
+#}
 
-AM_Dir=$AMNEZIA_MANAGER_CONFIGURATIONS_DIR; ensureDirExist
-AM_Dir=$AMNEZIA_MANAGER_DIR; ensureDirExist
-AM_Dir=$AMNEZIA_MANAGER_TEMP_DIR; ensureDirExist
-AM_Dir=$AMNEZIA_MANAGER_SCRIPTS_DIR; ensureDirExist
+#initialCheck() {
+#	isRoot
+#	checkVirt
+#	checkOS
+#}
+
+initParams() {
+    echo ""
+    echo "We need a basic setup."
+	echo "You can keep the default options and just press enter if you are ok with them."
+
+  	# Detect public IPv4 or IPv6 address and pre-fill for the user
+	SERVER_IP_ADDRESS=$(ip -4 addr | sed -ne 's|^.* inet \([^/]*\)/.* scope global.*$|\1|p' | awk '{print $1}' | head -1)
+	if [ -z $SERVER_IP_ADDRESS ]; then
+		# Detect public IPv6 address
+		SERVER_IP_ADDRESS=$(ip -6 addr | sed -ne 's|^.* inet6 \([^/]*\)/.* scope global.*$|\1|p' | head -1)
+	fi
+	read -rp "Public IPv4 or IPv6 address or domain [$SERVER_IP_ADDRESS]: " SERVER_IP_ADDRESS
+
+    PRIMARY_SERVER_DNS=1.1.1.1
+    SECONDARY_SERVER_DNS=1.0.0.1
+
+    echo "SERVER_IP_ADDRESS=$SERVER_IP_ADDRESS
+PRIMARY_SERVER_DNS=$PRIMARY_SERVER_DNS
+SECONDARY_SERVER_DNS=$SECONDARY_SERVER_DNS" > $AMNEZIA_MANAGER_CONFIGURATIONS_PARAMS
+}
+
+isRoot
+
+ensureDirExist $AMNEZIA_MANAGER_CONFIGURATIONS_DIR
+ensureDirExist $AMNEZIA_MANAGER_DIR
+ensureDirExist $AMNEZIA_MANAGER_TEMP_DIR
+ensureDirExist $AMNEZIA_MANAGER_SCRIPTS_DIR
+
+echo ""
+echo "Amnezia server manager (https://github.com/romikb/amnezia-manager)"
+
+if [ ! -e $AMNEZIA_MANAGER_CONFIGURATIONS_PARAMS ]; then initParams; else . $AMNEZIA_MANAGER_CONFIGURATIONS_PARAMS; fi
 
 mainMenu
