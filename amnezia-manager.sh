@@ -437,13 +437,14 @@ mainMenu() {
         AM_ConfigurationsCount=$(expr $AM_ConfigurationsCount + 1)
         echo "   $AM_ConfigurationsCount) Remove All Configurations"
         eval "AM_Configuration$AM_ConfigurationsCount"=RemoveConfigurations
+    else
+        AM_ConfigurationsCount=$(expr $AM_ConfigurationsCount + 1)
+        echo "   $AM_ConfigurationsCount) Basic Setup"
+        eval "AM_Configuration$AM_ConfigurationsCount"=BasicSetup
     fi
     AM_ConfigurationsCount=$(expr $AM_ConfigurationsCount + 1)
     echo "   $AM_ConfigurationsCount) Add Configuration"
     eval "AM_Configuration$AM_ConfigurationsCount"=AddConfiguration
-    AM_ConfigurationsCount=$(expr $AM_ConfigurationsCount + 1)
-    echo "   $AM_ConfigurationsCount) Basic Setup"
-    eval "AM_Configuration$AM_ConfigurationsCount"=BasicSetup
     echo ""
     getMenuOption 1 $AM_ConfigurationsCount
     

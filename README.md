@@ -6,7 +6,7 @@ Before installation it is strictly recommended to upgrade your system to the lat
 
 Use curl or wget to download the script:
 ```bash
-curl -O https://raw.githubusercontent.com/romikb/amnezia-manager/main/amnezia-inmanager.sh
+curl -O https://raw.githubusercontent.com/romikb/amnezia-manager/main/amnezia-manager.sh
 ```
 ```bash
 wget https://raw.githubusercontent.com/romikb/amnezia-manager/main/amnezia-manager.sh
