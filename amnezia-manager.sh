@@ -400,6 +400,28 @@ configurationMenu() {
     esac
 }
 
+basicSetup() {
+    echo ""
+    echo "We need a basic setup."
+	echo "You can keep the default options and just press enter if you are ok with them."
+
+  	# Detect public IPv4 or IPv6 address and pre-fill for the user
+	SERVER_IP_ADDRESS=$(ip -4 addr | sed -ne 's|^.* inet \([^/]*\)/.* scope global.*$|\1|p' | awk '{print $1}' | head -1)
+	if [ -z $SERVER_IP_ADDRESS ]; then
+		# Detect public IPv6 address
+		SERVER_IP_ADDRESS=$(ip -6 addr | sed -ne 's|^.* inet6 \([^/]*\)/.* scope global.*$|\1|p' | head -1)
+	fi
+	read -rp "Public IPv4 or IPv6 address or domain [$SERVER_IP_ADDRESS]: " input
+    SERVER_IP_ADDRESS=${input:-$SERVER_IP_ADDRESS}
+
+    PRIMARY_SERVER_DNS=1.1.1.1
+    SECONDARY_SERVER_DNS=1.0.0.1
+
+    echo "SERVER_IP_ADDRESS=$SERVER_IP_ADDRESS
+PRIMARY_SERVER_DNS=$PRIMARY_SERVER_DNS
+SECONDARY_SERVER_DNS=$SECONDARY_SERVER_DNS" > $AMNEZIA_MANAGER_CONFIGURATIONS_PARAMS
+}
+
 mainMenu() {
     echo ""
     echo "Existing configurations:"
@@ -419,6 +441,9 @@ mainMenu() {
     AM_ConfigurationsCount=$(expr $AM_ConfigurationsCount + 1)
     echo "   $AM_ConfigurationsCount) Add Configuration"
     eval "AM_Configuration$AM_ConfigurationsCount"=AddConfiguration
+    AM_ConfigurationsCount=$(expr $AM_ConfigurationsCount + 1)
+    echo "   $AM_ConfigurationsCount) Basic Setup"
+    eval "AM_Configuration$AM_ConfigurationsCount"=BasicSetup
     echo ""
     getMenuOption 1 $AM_ConfigurationsCount
     
@@ -426,6 +451,7 @@ mainMenu() {
     case $AM_Configuration in
         RemoveConfigurations) removeConfigurations ;;
         AddConfiguration) addConfigurationMenu ;;
+        BasicSetup) basicSetup ;;
         *) configurationMenu ;;
     esac
 }
@@ -460,27 +486,6 @@ isRoot() {
 #	checkOS
 #}
 
-initParams() {
-    echo ""
-    echo "We need a basic setup."
-	echo "You can keep the default options and just press enter if you are ok with them."
-
-  	# Detect public IPv4 or IPv6 address and pre-fill for the user
-	SERVER_IP_ADDRESS=$(ip -4 addr | sed -ne 's|^.* inet \([^/]*\)/.* scope global.*$|\1|p' | awk '{print $1}' | head -1)
-	if [ -z $SERVER_IP_ADDRESS ]; then
-		# Detect public IPv6 address
-		SERVER_IP_ADDRESS=$(ip -6 addr | sed -ne 's|^.* inet6 \([^/]*\)/.* scope global.*$|\1|p' | head -1)
-	fi
-	read -rp "Public IPv4 or IPv6 address or domain [$SERVER_IP_ADDRESS]: " SERVER_IP_ADDRESS
-
-    PRIMARY_SERVER_DNS=1.1.1.1
-    SECONDARY_SERVER_DNS=1.0.0.1
-
-    echo "SERVER_IP_ADDRESS=$SERVER_IP_ADDRESS
-PRIMARY_SERVER_DNS=$PRIMARY_SERVER_DNS
-SECONDARY_SERVER_DNS=$SECONDARY_SERVER_DNS" > $AMNEZIA_MANAGER_CONFIGURATIONS_PARAMS
-}
-
 isRoot
 
 ensureDirExist $AMNEZIA_MANAGER_CONFIGURATIONS_DIR
@@ -491,6 +496,6 @@ ensureDirExist $AMNEZIA_MANAGER_SCRIPTS_DIR
 echo ""
 echo "Amnezia server manager (https://github.com/romikb/amnezia-manager)"
 
-if [ ! -e $AMNEZIA_MANAGER_CONFIGURATIONS_PARAMS ]; then initParams; else . $AMNEZIA_MANAGER_CONFIGURATIONS_PARAMS; fi
+if [ ! -e $AMNEZIA_MANAGER_CONFIGURATIONS_PARAMS ]; then basicSetup; else . $AMNEZIA_MANAGER_CONFIGURATIONS_PARAMS; fi
 
 mainMenu
