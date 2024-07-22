@@ -1,5 +1,7 @@
 # Amnezia manager
 
+**This project is a shell script that aims to setup and manage [AmneziaWG](https://docs.amnezia.org/ru/documentation/amnezia-wg/) VPN on a Linux server, with respect of Amnezia scripts!**
+
 ## Usage
 
 Before installation it is strictly recommended to upgrade your system to the latest available version and perform the reboot afterwards.
